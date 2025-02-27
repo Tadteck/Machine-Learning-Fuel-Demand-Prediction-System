@@ -1,4 +1,4 @@
-# Fuel Demand Prediction System
+# Machine Learning Fuel Demand Prediction System
 
 This project predicts fuel demand based on historical data and external factors like temperature, holidays, and fuel prices.
 
