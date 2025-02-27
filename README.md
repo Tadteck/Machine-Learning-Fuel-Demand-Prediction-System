@@ -5,7 +5,7 @@ This project predicts fuel demand based on historical data and external factors 
 ## Features
 - Flask backend API.
 - MongoDB integration for storing predictions.
-- Simple Linear Regression model for predictions.
+- Random Forest model for predictions.
 
 ## Setup
 1. Clone the repository:
