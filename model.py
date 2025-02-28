@@ -27,8 +27,8 @@ def train_model():
         model.fit(X, y)
         logger.info("Model trained successfully")
         return model
-    except Exception as e:
-        logger.error(f"Error training model: {str(e)}")
+    except Exception as error:
+        logger.error(f"Error training model: {str(error)}")
         return None
 
 def predict_fuel_demand(model, data):
