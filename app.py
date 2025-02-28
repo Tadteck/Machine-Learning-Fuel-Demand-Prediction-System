@@ -3,7 +3,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from pymongo import MongoClient
 from model import train_model, predict_fuel_demand
 import logging
-from marshmallow import Schema, fields, ValidationError
+from marshmallow import Schema, fields, ValidationError #
 
 app = Flask(__name__)
 
