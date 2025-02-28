@@ -112,23 +112,23 @@ def get_predictions():
         logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500   
     
-# @app.route('/update-data', methods=['POST'])
-# @jwt_required()
-# def update_data():
-#     try:
-#         data = request.json
-#         # Validate input data
-#         if not data or 'temperature' not in data or 'holiday' not in data or 'fuel_price' not in data or 'demand' not in data:
-#             return jsonify({'error': 'Invalid input data'}), 400
-#         # Save new data to MongoDB
-#         db['data'].insert_one(data)
-#         # Retrain the model
-#         global model
-#         model = train_model()
-#         return jsonify({'message': 'Data updated and model retrained'}), 200
-#     except Exception as e:
-#         logger.error(f"Error: {str(e)}")
-#         return jsonify({'error': str(e)}), 500
+@app.route('/update-data', methods=['POST'])
+@jwt_required()
+def update_data():
+    try:
+        data = request.json
+        # Validate input data
+        if not data or 'temperature' not in data or 'holiday' not in data or 'fuel_price' not in data or 'demand' not in data:
+            return jsonify({'error': 'Invalid input data'}), 400
+        # Save new data to MongoDB
+        db['data'].insert_one(data)
+        # Retrain the model
+        global model
+        model = train_model()
+        return jsonify({'message': 'Data updated and model retrained'}), 200
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 # Run the app
 if __name__ == '__main__':
     app.run(debug=True)
