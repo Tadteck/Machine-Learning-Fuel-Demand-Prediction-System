@@ -3,6 +3,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from pymongo import MongoClient
 from model import train_model, predict_fuel_demand
 import logging
+from marshmallow import Schema, fields, ValidationError
 
 app = Flask(__name__)
 
@@ -22,6 +23,15 @@ users_collection = db['users']
 
 # Train the model when the app starts
 model = train_model()
+
+# Define the schema for data validation
+class UpdateDataSchema(Schema):
+    temperature = fields.Float(required=True)
+    holiday = fields.Int(required=True)
+    fuel_price = fields.Float(required=True)
+    demand = fields.Int(required=True)
+
+update_data_schema = UpdateDataSchema()
 
 # User registration endpoint
 @app.route('/register', methods=['POST'])
@@ -64,8 +74,37 @@ def login():
     except Exception as e:
         logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+    
+#endpoint for update-data
+@app.route('/update-data', methods=['POST'])
+@jwt_required()
+def update_data():
+    try:
+        logger.info(f"Received request: {request.json}")
+        # Validate input data
+        data = request.json
+        errors = update_data_schema.validate(request.json)
+        if errors:
+            logger.error(f"Validation errors: {errors}")
+            return jsonify({'error': errors}), 400
+        data = request.json
+        logger.info(f"Data to insert: {data}")
+        # Save new data to MongoDB
+        db['data'].insert_one(data)
+        logger.info("Data inserted into MongoDB")
+        # Retrain the model
+        global model
+        model = train_model()
+        logger.info("Model retrained")
+        return jsonify({'message': 'Data updated and model retrained'}), 200
+    except ValidationError as ve:
+        logger.error(f"Validation error: {ve.messages}")
+        return jsonify({'error': ve.messages}), 400
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500     
 
-# Protected prediction endpoint
+# Protected predict endpoint
 @app.route( "/predict", methods=['POST'])
 @jwt_required()
 def predict():
@@ -95,7 +134,7 @@ def predict():
         logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
     
-    
+## endpoint for predictions    
 @app.route('/predictions', methods=['GET'])
 @jwt_required()
 def get_predictions():
