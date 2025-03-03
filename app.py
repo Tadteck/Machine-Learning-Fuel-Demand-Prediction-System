@@ -3,6 +3,9 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from pymongo import MongoClient
 from model import train_model, predict_fuel_demand
 import logging
+from schemas import PredictionInputSchema, UpdateDataSchema
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
 
@@ -65,61 +68,63 @@ def login():
         logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-# Protected prediction endpoint
-@app.route( "/predict", methods=['POST'])
+# Validate prediction input
+prediction_schema = PredictionInputSchema()
+update_data_schema = UpdateDataSchema()
+# Configure rate limiting
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
+
+@app.route('/predict', methods=['POST'])
 @jwt_required()
+@limiter.limit("10 per minute")
 def predict():
     try:
-        # Log the request
-        logger.info(f"Received request: {request.json}")
-        # Get data from the request
-        data = request.json
         # Validate input data
-        if not data or 'temperature' not in data or 'holiday' not in data or 'fuel_price' not in data:
-            logger.error("Invalid input data")
-            return jsonify({'error': 'Invalid input data'}), 400
+        errors = prediction_schema.validate(request.json)
+        if errors:
+            return jsonify({'error': errors}), 400
+        data = request.json
         # Make a prediction
         prediction = predict_fuel_demand(model, data)
-        # Log the prediction
-        logger.info(f"Prediction: {prediction}")
         # Store the prediction in MongoDB
         prediction_record = {
             'input_data': data,
             'prediction': prediction,
-            'user': get_jwt_identity()  # Associate prediction with the logged-in user
+            'user': get_jwt_identity()
         }
         predictions_collection.insert_one(prediction_record)
-        # Return the prediction as JSON
         return jsonify({'prediction': prediction})
     except Exception as e:
         logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
     
-    
 @app.route('/predictions', methods=['GET'])
 @jwt_required()
 def get_predictions():
     try:
-        # Get the username of the logged-in user from the JWT token
         user = get_jwt_identity()
-        
-        # Fetch predictions for the logged-in user from MongoDB
-        predictions = list(predictions_collection.find({'user': user}, {'_id': 0}))
-        
-        # Return the predictions as JSON
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 10))
+        skip = (page - 1) * per_page
+        predictions = list(predictions_collection.find({'user': user}, {'_id': 0}).skip(skip).limit(per_page))
         return jsonify(predictions), 200
     except Exception as e:
         logger.error(f"Error: {str(e)}")
-        return jsonify({'error': str(e)}), 500   
-    
+        return jsonify({'error': str(e)}), 500    
+
 @app.route('/update-data', methods=['POST'])
 @jwt_required()
 def update_data():
     try:
-        data = request.json
         # Validate input data
-        if not data or 'temperature' not in data or 'holiday' not in data or 'fuel_price' not in data or 'demand' not in data:
-            return jsonify({'error': 'Invalid input data'}), 400
+        errors = update_data_schema.validate(request.json)
+        if errors:
+            return jsonify({'error': errors}), 400
+        data = request.json
         # Save new data to MongoDB
         db['data'].insert_one(data)
         # Retrain the model
