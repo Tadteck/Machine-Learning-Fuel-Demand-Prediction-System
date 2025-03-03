@@ -3,13 +3,10 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from pymongo import MongoClient
 from model import train_model, predict_fuel_demand
 import logging
-<<<<<<< HEAD
 from schemas import PredictionInputSchema, UpdateDataSchema
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-=======
-from marshmallow import Schema, fields, ValidationError #
->>>>>>> main
+from marshmallow import Schema, fields, ValidationError
 
 app = Flask(__name__)
 
@@ -119,10 +116,9 @@ def update_data():
         logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500     
 
-<<<<<<< HEAD
 # Validate prediction input
 prediction_schema = PredictionInputSchema()
-update_data_schema = UpdateDataSchema()
+
 # Configure rate limiting
 limiter = Limiter(
     app=app,
@@ -130,13 +126,9 @@ limiter = Limiter(
     default_limits=["200 per day", "50 per hour"]
 )
 
-@app.route('/predict', methods=['POST'])
-=======
 # Protected predict endpoint
-@app.route( "/predict", methods=['POST'])
->>>>>>> main
+@app.route('/predict', methods=['POST'])
 @jwt_required()
-@limiter.limit("10 per minute")
 def predict():
     try:
         # Validate input data
@@ -157,11 +149,8 @@ def predict():
     except Exception as e:
         logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
-    
-<<<<<<< HEAD
-=======
-## endpoint for predictions    
->>>>>>> main
+
+# Endpoint for predictions    
 @app.route('/predictions', methods=['GET'])
 @jwt_required()
 def get_predictions():
@@ -174,26 +163,4 @@ def get_predictions():
         return jsonify(predictions), 200
     except Exception as e:
         logger.error(f"Error: {str(e)}")
-        return jsonify({'error': str(e)}), 500    
-
-@app.route('/update-data', methods=['POST'])
-@jwt_required()
-def update_data():
-    try:
-        # Validate input data
-        errors = update_data_schema.validate(request.json)
-        if errors:
-            return jsonify({'error': errors}), 400
-        data = request.json
-        # Save new data to MongoDB
-        db['data'].insert_one(data)
-        # Retrain the model
-        global model
-        model = train_model()
-        return jsonify({'message': 'Data updated and model retrained'}), 200
-    except Exception as e:
-        logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
-# Run the app
-if __name__ == '__main__':
-    app.run(debug=True)
