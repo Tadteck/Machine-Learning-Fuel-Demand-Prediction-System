@@ -9,6 +9,15 @@ from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
 
+@app.before_request
+def log_request_info():
+    logger.info(f"Request: {request.method} {request.path}")
+
+@app.after_request
+def log_response_info(response):
+    logger.info(f"Response: {response.status}")
+    return response
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
