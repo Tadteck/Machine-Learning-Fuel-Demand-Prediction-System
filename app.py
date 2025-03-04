@@ -8,6 +8,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from marshmallow import Schema, fields, ValidationError
 from flask_swagger_ui import get_swaggerui_blueprint
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -33,6 +34,9 @@ client = MongoClient('mongodb://localhost:27017/')
 db = client['fuel_demand_db']
 predictions_collection = db['predictions']
 users_collection = db['users']
+
+users_collection.update_many({}, {'$set': {'role': 'user'}})
+predictions_collection = db['predictions']
 
 # Train the model when the app starts
 model = train_model()
@@ -69,7 +73,7 @@ def register():
             return jsonify({'error': 'Username already exists'}), 400
 
         # Save user to MongoDB
-        users_collection.insert_one({'username': username, 'password': password})
+        users_collection.insert_one({'username': username, 'password': password, 'role': 'user'})
         return jsonify({'message': 'User registered successfully'}), 201
     except Exception as e:
         logger.error(f"Error: {str(e)}")
@@ -130,6 +134,7 @@ def get_predictions():
         per_page = int(request.args.get('per_page', 10))
         skip = (page - 1) * per_page
         predictions = list(predictions_collection.find({'user': user}, {'_id': 0}).skip(skip).limit(per_page))
+        predictions_collection.update_many({}, {'$set': {'timestamp': datetime.now()}})
         return jsonify(predictions), 200
     except Exception as e:
         logger.error(f"Error: {str(e)}")

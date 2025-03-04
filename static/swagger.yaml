@@ -1,6 +1,6 @@
 openapi: 3.0.0
 info:
-  title: Fuel Demand Prediction API
+  title: Machine Learning Fuel Demand Prediction API
   description: API for predicting fuel demand based on temperature, holidays, and fuel prices.
   version: 1.0.0
 paths:
