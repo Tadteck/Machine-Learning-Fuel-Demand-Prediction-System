@@ -7,6 +7,7 @@ from schemas import PredictionInputSchema, UpdateDataSchema
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from marshmallow import Schema, fields, ValidationError
+from flask_swagger_ui import get_swaggerui_blueprint
 
 app = Flask(__name__)
 
@@ -152,6 +153,25 @@ def update_data():
     except Exception as e:
         logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+# Swagger UI configuration
+SWAGGER_URL = '/api/docs'  # URL for accessing Swagger UI
+API_URL = '/swagger.yaml'  # URL for the Swagger YAML file
+
+# Create Swagger UI blueprint
+swaggerui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={'app_name': "Fuel Demand Prediction API"}
+)
+
+# Register the blueprint
+app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
+
+# Serve the Swagger YAML file
+@app.route('/swagger.yaml')
+def serve_swagger():
+    return app.send_static_file('swagger.yaml')
 
 # Run the app
 if __name__ == '__main__':

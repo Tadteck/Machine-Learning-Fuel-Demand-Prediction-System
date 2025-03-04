@@ -1,0 +1,49 @@
+openapi: 3.0.0
+info:
+  title: Fuel Demand Prediction API
+  description: API for predicting fuel demand based on temperature, holidays, and fuel prices.
+  version: 1.0.0
+paths:
+  /predict:
+    post:
+      summary: Predict fuel demand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                temperature:
+                  type: number
+                holiday:
+                  type: integer
+                fuel_price:
+                  type: number
+      responses:
+        '200':
+          description: Successful prediction
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prediction:
+                    type: number
+  /predictions:
+    get:
+      summary: Get all predictions for the logged-in user
+      responses:
+        '200':
+          description: List of predictions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    input_data:
+                      type: object
+                    prediction:
+                      type: number
