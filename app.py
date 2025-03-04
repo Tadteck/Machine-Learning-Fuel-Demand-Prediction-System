@@ -7,7 +7,6 @@ from schemas import PredictionInputSchema, UpdateDataSchema
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from marshmallow import Schema, fields, ValidationError
-from redis import Redis
 
 app = Flask(__name__)
 
@@ -37,22 +36,19 @@ users_collection = db['users']
 # Train the model when the app starts
 model = train_model()
 
-# Configure Redis for rate limiting
-redis_client = Redis(host='localhost', port=6379)
-
 # Configure rate limiting
 limiter = Limiter(
     app=app,
     key_func=get_remote_address,
-    storage_uri="redis://localhost:6379"
+    default_limits=["200 per day", "50 per hour"]
 )
 
 # Define the schema for data validation
-# class UpdateDataSchema(Schema):
-#     temperature = fields.Float(required=True)
-#     holiday = fields.Int(required=True)
-#     fuel_price = fields.Float(required=True)
-#     demand = fields.Int(required=True)
+class UpdateDataSchema(Schema):
+    temperature = fields.Float(required=True)
+    holiday = fields.Int(required=True)
+    fuel_price = fields.Float(required=True)
+    demand = fields.Int(required=True)
 
 update_data_schema = UpdateDataSchema()
 
@@ -97,47 +93,10 @@ def login():
     except Exception as e:
         logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
-    
-#endpoint for update-data
-@app.route('/update-data', methods=['POST'])
-@jwt_required()
-def update_data():
-    try:
-        logger.info(f"Received request: {request.json}")
-        # Validate input data
-        data = request.json
-        errors = update_data_schema.validate(request.json)
-        if errors:
-            logger.error(f"Validation errors: {errors}")
-            return jsonify({'error': errors}), 400
-        data = request.json
-        logger.info(f"Data to insert: {data}")
-        # Save new data to MongoDB
-        db['data'].insert_one(data)
-        logger.info("Data inserted into MongoDB")
-        # Retrain the model
-        global model
-        model = train_model()
-        logger.info("Model retrained")
-        return jsonify({'message': 'Data updated and model retrained'}), 200
-    except ValidationError as ve:
-        logger.error(f"Validation error: {ve.messages}")
-        return jsonify({'error': ve.messages}), 400
-    except Exception as e:
-        logger.error(f"Error: {str(e)}")
-        return jsonify({'error': str(e)}), 500     
 
 # Validate prediction input
 prediction_schema = PredictionInputSchema()
 
-# Configure rate limiting
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
-)
-
-# Protected predict endpoint
 @app.route('/predict', methods=['POST'])
 @jwt_required()
 def predict():
@@ -147,8 +106,8 @@ def predict():
         if errors:
             return jsonify({'error': errors}), 400
         data = request.json
-        # Make a prediction
-        prediction = predict_fuel_demand(model, data)
+        # Make a prediction (using cached function)
+        prediction = predict_fuel_demand(model, data['temperature'], data['holiday'], data['fuel_price'])
         # Store the prediction in MongoDB
         prediction_record = {
             'input_data': data,
@@ -160,8 +119,7 @@ def predict():
     except Exception as e:
         logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
-
-# Endpoint for predictions    
+    
 @app.route('/predictions', methods=['GET'])
 @jwt_required()
 def get_predictions():
@@ -174,4 +132,27 @@ def get_predictions():
         return jsonify(predictions), 200
     except Exception as e:
         logger.error(f"Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500    
+
+@app.route('/update-data', methods=['POST'])
+@jwt_required()
+def update_data():
+    try:
+        # Validate input data
+        errors = update_data_schema.validate(request.json)
+        if errors:
+            return jsonify({'error': errors}), 400
+        data = request.json
+        # Save new data to MongoDB
+        db['data'].insert_one(data)
+        # Retrain the model
+        global model
+        model = train_model()
+        return jsonify({'message': 'Data updated and model retrained'}), 200
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+# Run the app
+if __name__ == '__main__':
+    app.run(debug=True)

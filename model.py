@@ -1,6 +1,7 @@
 from sklearn.ensemble import RandomForestRegressor
 import pandas as pd
 import logging
+from functools import lru_cache
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -31,10 +32,15 @@ def train_model():
         logger.error(f"Error training model: {str(error)}")
         return None
 
-def predict_fuel_demand(model, data):
+@lru_cache(maxsize=100)  # Cache up to 100 predictions
+def predict_fuel_demand(model, temperature, holiday, fuel_price):
     try:
-        X_new = pd.DataFrame([data])
-        prediction = model.predict(X_new)
+        input_data = pd.DataFrame([{
+            'temperature': temperature,
+            'holiday': holiday,
+            'fuel_price': fuel_price
+        }])
+        prediction = model.predict(input_data)
         return prediction[0]
     except Exception as e:
         logger.error(f"Error predicting fuel demand: {str(e)}")

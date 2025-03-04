@@ -1,16 +1,11 @@
 import pytest
-import sys
-import os
-from pymongo import MongoClient
-
-# Add the backend directory to the Python path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 from app import app
+from pymongo import MongoClient
 
 @pytest.fixture
 def client():
     app.config['TESTING'] = True
+    app.config['MONGO_URI'] = 'mongodb://localhost:27017/fuel_demand_test_db'
     with app.test_client() as client:
         yield client
 
@@ -24,32 +19,32 @@ def cleanup_db():
 
 def test_register(client):
     response = client.post('/register', json={
-        'username': 'Tadiwa',
-        'password': '12345'
+        'username': 'testuser',
+        'password': 'testpassword'
     })
     assert response.status_code == 201
     assert 'message' in response.json
 
 def test_login(client):
     client.post('/register', json={
-        'username': 'Tadiwa',
-        'password': '12345'
+        'username': 'testuser',
+        'password': 'testpassword'
     })
     response = client.post('/login', json={
-        'username': 'Tadiwa',
-        'password': '12345'
+        'username': 'testuser',
+        'password': 'testpassword'
     })
     assert response.status_code == 200
     assert 'access_token' in response.json
 
 def test_predict(client):
     client.post('/register', json={
-        'username': 'Tadiwa',
-        'password': '12345'
+        'username': 'testuser',
+        'password': 'testpassword'
     })
     response = client.post('/login', json={
-        'username': 'Tadiwa',
-        'password': '12345'
+        'username': 'testuser',
+        'password': 'testpassword'
     })
     token = response.json['access_token']
     response = client.post('/predict', json={
@@ -62,12 +57,12 @@ def test_predict(client):
 
 def test_get_predictions(client):
     client.post('/register', json={
-        'username': 'Tadiwa',
-        'password': '12345'
+        'username': 'testuser',
+        'password': 'testpassword'
     })
     response = client.post('/login', json={
-        'username': 'Tadiwa',
-        'password': '12345'
+        'username': 'testuser',
+        'password': 'testpassword'
     })
     token = response.json['access_token']
     response = client.get('/predictions', headers={'Authorization': f'Bearer {token}'})
@@ -75,12 +70,12 @@ def test_get_predictions(client):
 
 def test_update_data(client):
     client.post('/register', json={
-        'username': 'Tadiwa',
-        'password': '12345'
+        'username': 'testuser',
+        'password': 'testpassword'
     })
     response = client.post('/login', json={
-        'username': 'Tadiwa',
-        'password': '12345'
+        'username': 'testuser',
+        'password': 'testpassword'
     })
     token = response.json['access_token']
     response = client.post('/update-data', json={
