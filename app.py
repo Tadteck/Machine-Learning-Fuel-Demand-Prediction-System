@@ -7,6 +7,7 @@ from schemas import PredictionInputSchema, UpdateDataSchema
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from marshmallow import Schema, fields, ValidationError
+from redis import Redis
 
 app = Flask(__name__)
 
@@ -36,12 +37,22 @@ users_collection = db['users']
 # Train the model when the app starts
 model = train_model()
 
+# Configure Redis for rate limiting
+redis_client = Redis(host='localhost', port=6379)
+
+# Configure rate limiting
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    storage_uri="redis://localhost:6379"
+)
+
 # Define the schema for data validation
-class UpdateDataSchema(Schema):
-    temperature = fields.Float(required=True)
-    holiday = fields.Int(required=True)
-    fuel_price = fields.Float(required=True)
-    demand = fields.Int(required=True)
+# class UpdateDataSchema(Schema):
+#     temperature = fields.Float(required=True)
+#     holiday = fields.Int(required=True)
+#     fuel_price = fields.Float(required=True)
+#     demand = fields.Int(required=True)
 
 update_data_schema = UpdateDataSchema()
 

@@ -44,7 +44,7 @@ def test_login(client):
 
 def test_predict(client):
     client.post('/register', json={
-        'username': 'Tadiwanashe',
+        'username': 'Tadiwa',
         'password': '12345'
     })
     response = client.post('/login', json={
