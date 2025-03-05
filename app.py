@@ -9,6 +9,7 @@ from flask_limiter.util import get_remote_address
 from marshmallow import Schema, fields, ValidationError
 from flask_swagger_ui import get_swaggerui_blueprint
 from datetime import datetime
+from functools import wraps
 
 app = Flask(__name__)
 
@@ -38,6 +39,13 @@ users_collection = db['users']
 users_collection.update_many({}, {'$set': {'role': 'user'}})
 predictions_collection = db['predictions']
 
+# Insert admin user
+users_collection.insert_one({
+    'username': 'admin',
+    'password': 'adminpassword',
+    'role': 'admin'
+})
+
 # Train the model when the app starts
 model = train_model()
 
@@ -57,6 +65,17 @@ class UpdateDataSchema(Schema):
 
 update_data_schema = UpdateDataSchema()
 
+# Admin required decorator
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        current_user = get_jwt_identity()
+        user = users_collection.find_one({'username': current_user})
+        if not user or user['role'] != 'admin':
+            return jsonify({'error': 'Admin access required'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
 # User registration endpoint
 @app.route('/register', methods=['POST'])
 def register():
@@ -73,7 +92,11 @@ def register():
             return jsonify({'error': 'Username already exists'}), 400
 
         # Save user to MongoDB
-        users_collection.insert_one({'username': username, 'password': password, 'role': 'user'})
+        users_collection.insert_one({
+            'username': username,
+            'password': password,
+            'role': 'user'  # Default role
+        })
         return jsonify({'message': 'User registered successfully'}), 201
     except Exception as e:
         logger.error(f"Error: {str(e)}")
@@ -142,6 +165,7 @@ def get_predictions():
 
 @app.route('/update-data', methods=['POST'])
 @jwt_required()
+@admin_required
 def update_data():
     try:
         # Validate input data
@@ -155,6 +179,44 @@ def update_data():
         global model
         model = train_model()
         return jsonify({'message': 'Data updated and model retrained'}), 200
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# Admin endpoint to get all users
+@app.route('/admin/users', methods=['GET'])
+@jwt_required()
+@admin_required
+def get_all_users():
+    try:
+        users = list(users_collection.find({}, {'_id': 0, 'password': 0}))
+        return jsonify(users), 200
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# Admin endpoint to get all predictions
+@app.route('/admin/predictions', methods=['GET'])
+@jwt_required()
+@admin_required
+def get_all_predictions():
+    try:
+        predictions = list(predictions_collection.find({}, {'_id': 0}))
+        return jsonify(predictions), 200
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# Admin endpoint to delete a user
+@app.route('/admin/delete-user/<username>', methods=['DELETE'])
+@jwt_required()
+@admin_required
+def delete_user(username):
+    try:
+        result = users_collection.delete_one({'username': username})
+        if result.deleted_count == 0:
+            return jsonify({'error': 'User not found'}), 404
+        return jsonify({'message': 'User deleted'}), 200
     except Exception as e:
         logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
