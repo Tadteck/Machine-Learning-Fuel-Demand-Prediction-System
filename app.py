@@ -10,6 +10,8 @@ from marshmallow import Schema, fields, ValidationError
 from flask_swagger_ui import get_swaggerui_blueprint
 from datetime import datetime
 from functools import wraps
+from flask_mail import Mail, Message
+from collections import defaultdict
 
 app = Flask(__name__)
 
@@ -29,6 +31,14 @@ logger = logging.getLogger(__name__)
 # Configure JWT
 app.config['JWT_SECRET_KEY'] = 'your-secret-key'  # Change this to a secure key
 jwt = JWTManager(app)
+
+# Configure Flask-Mail
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'your-email@gmail.com'
+app.config['MAIL_PASSWORD'] = 'your-email-password'
+mail = Mail(app)
 
 # Connect to MongoDB
 client = MongoClient('mongodb://localhost:27017/')
@@ -75,6 +85,13 @@ def admin_required(f):
             return jsonify({'error': 'Admin access required'}), 403
         return f(*args, **kwargs)
     return decorated_function
+
+# Track API usage
+api_usage = defaultdict(int)
+
+@app.before_request
+def track_api_usage():
+    api_usage[request.endpoint] += 1
 
 # User registration endpoint
 @app.route('/register', methods=['POST'])
@@ -134,7 +151,7 @@ def predict():
         if errors:
             return jsonify({'error': errors}), 400
         data = request.json
-        # Make a prediction (using cached function)
+        # Make a prediction
         prediction = predict_fuel_demand(model, data['temperature'], data['holiday'], data['fuel_price'])
         # Store the prediction in MongoDB
         prediction_record = {
@@ -143,11 +160,22 @@ def predict():
             'user': get_jwt_identity()
         }
         predictions_collection.insert_one(prediction_record)
+        # Send email notification
+        send_email_notification(get_jwt_identity(), prediction)
         return jsonify({'prediction': prediction})
     except Exception as e:
         logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
-    
+
+def send_email_notification(username, prediction):
+    msg = Message(
+        subject='New Fuel Demand Prediction',
+        sender='your-email@gmail.com',
+        recipients=[f'{username}@example.com']  # Replace with actual email logic
+    )
+    msg.body = f'A new fuel demand prediction has been made: {prediction}'
+    mail.send(msg)
+
 @app.route('/predictions', methods=['GET'])
 @jwt_required()
 def get_predictions():
@@ -217,6 +245,17 @@ def delete_user(username):
         if result.deleted_count == 0:
             return jsonify({'error': 'User not found'}), 404
         return jsonify({'message': 'User deleted'}), 200
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# Admin endpoint to get API usage statistics
+@app.route('/admin/api-usage', methods=['GET'])
+@jwt_required()
+@admin_required
+def get_api_usage():
+    try:
+        return jsonify(dict(api_usage)), 200
     except Exception as e:
         logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
