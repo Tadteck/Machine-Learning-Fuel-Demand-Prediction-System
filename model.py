@@ -8,20 +8,20 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def load_data():
-    # Placeholder function to load data
-    # Replace this with your actual data loading logic
-    data = {
-        'temperature': [20, 21, 19, 22, 20],
-        'holiday': [0, 1, 0, 0, 1],
-        'fuel_price': [3.5, 3.6, 3.4, 3.7, 3.5],
-        'demand': [100, 150, 90, 200, 120]
-    }
-    df = pd.DataFrame(data)
-    return df
+    try:
+        df = pd.read_csv('data/historical_data.csv')
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        logger.info("Data loaded successfully from historical_data.csv")
+        return df
+    except Exception as error:
+        logger.error(f"Error loading data: {str(error)}")
+        return None
 
 def train_model():
     try:
         df = load_data()
+        if df is None:
+            raise ValueError("Data loading failed")
         X = df[['temperature', 'holiday', 'fuel_price']]
         y = df['demand']
         model = RandomForestRegressor(n_estimators=100, random_state=42)
