@@ -12,6 +12,7 @@ from datetime import datetime
 from functools import wraps
 from flask_mail import Mail, Message
 from collections import defaultdict
+import requests
 
 app = Flask(__name__)
 
@@ -259,6 +260,19 @@ def get_api_usage():
     except Exception as e:
         logger.error(f"Error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+def fetch_weather_data(api_key, city):
+    url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=metric"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        return {
+            'temperature': data['main']['temp'],
+            'humidity': data['main']['humidity'],
+            'weather_condition': data['weather'][0]['main']
+        }
+    else:
+        raise Exception(f"Failed to fetch weather data: {response.status_code}")
 
 # Swagger UI configuration
 SWAGGER_URL = '/api/docs'  # URL for accessing Swagger UI
